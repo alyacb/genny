@@ -48,3 +48,14 @@ TPCHDenormalizedQuery2Explain:
       explain: *TPCHDenormalizedQuery2Aggregation
       verbosity:
         executionStats
+
+ValidateTPCHDenormalizedQuery2:
+  Repeat: 1
+  Database: tpch
+  Operations:
+  - LoadConfig:
+    Path: ../../../../phases/tpch/Validate.yml
+    Key: ValidateTPCHQueryResults
+    Parameters:
+      ActualAggregation: *tpchDenormalizedQuery2Aggregation
+      ValidationCollection: res_2

@@ -89,3 +89,11 @@ TPCHNormalizedQuery2Explain:
       explain: *TPCHNormalizedQuery2Aggregation
       verbosity:
         executionStats
+
+ValidateTPCHNormalizedQuery2:
+  LoadConfig:
+    Path: ../../../../phases/tpch/Validate.yml
+    Key: ValidateTPCHQueryResults
+    Parameters:
+      ActualAggregation: *tpchNormalizedQuery2Aggregation
+      ValidationCollection: res_2
