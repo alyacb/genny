@@ -41,26 +41,14 @@ struct AssertiveActor::PhaseConfig {
     mongocxx::database database;
     DocumentGenerator expectedExpr;
     DocumentGenerator actualExpr;
-    std::string compareCollection;
+    std::string name;
 
     PhaseConfig(PhaseContext& phaseContext, mongocxx::database&& db, ActorId id)
         : database{db},
           expectedExpr{phaseContext["Expected"].to<DocumentGenerator>(phaseContext, id)},
-          actualExpr{phaseContext["Actual"].to<DocumentGenerator>(phaseContext, id)} {}
+          actualExpr{phaseContext["Actual"].to<DocumentGenerator>(phaseContext, id)},
+          name{phaseContext["Name"].maybe<std::string>().value_or("")} {}
 };
-
-void printArr(const bsoncxx::array::view& arr) {
-    BOOST_LOG_TRIVIAL(info) << "ARR: ";
-    for (auto v : arr) {
-        if (v.type() == bsoncxx::type::k_document) {
-            bsoncxx::document::view ev{v.get_document().value};
-            BOOST_LOG_TRIVIAL(info) << bsoncxx::to_json(ev);
-        } else {
-            BOOST_LOG_TRIVIAL(info) << "FOO";
-        }
-    }
-    BOOST_LOG_TRIVIAL(info) << "END ARR";
-}
 
 auto runCommandAndGetResult(AssertiveActor::PhaseConfig* config, bsoncxx::document::value& command) {
     auto cmdView = command.view();
@@ -81,31 +69,38 @@ auto getBatchFromCommandResult(const bsoncxx::document::view& resView) {
     BOOST_THROW_EXCEPTION(MongoException("Failed to run command."));
 }
 
+double convertNumericToDouble(auto& numeric) {
+    switch(numeric.type()) {
+        case bsoncxx::type::k_double:
+            return numeric.get_double();
+        case bsoncxx::type::k_int32:
+            return numeric.get_int32() * 1.0;
+        case bsoncxx::type::k_int64:
+            return numeric.get_int64() * 1.0;
+        default:
+            BOOST_THROW_EXCEPTION(MongoException("not a numeric"));
+    }
+}
+
+bool isNumeric(bsoncxx::type type) {
+    return (type == bsoncxx::type::k_double)
+        || (type == bsoncxx::type::k_int32)
+        || (type == bsoncxx::type::k_int64);
+}
+
 bool equalBSONDocs(const bsoncxx::document::view& expected, const bsoncxx::document::view& actual);
 bool equalBSONArrays(const bsoncxx::array::view& expected, const bsoncxx::array::view& actual);
 bool equal(auto& expectedVal, auto& actualVal) {
     auto type = expectedVal.type();
-    if (type != actualVal.type()) {
-        BOOST_LOG_TRIVIAL(info) << "Types differ! ";
-        // return false; // TODO nums rounded to ints need an escape hatch here.
-        return true;
-    } else if (type == bsoncxx::type::k_double) {
-        auto expectedDouble = expectedVal.get_double();
-        auto actualDouble = actualVal.get_double();
+    if (isNumeric(type) && isNumeric(actualVal.type())) {
+        // Rounding may result in one value being a double while another is integral. Handle this case through double comparison.
+        auto expectedDouble = convertNumericToDouble(expectedVal);
+        auto actualDouble = convertNumericToDouble(actualVal);
         // Accept a small difference in doubles.
         return std::abs(expectedDouble - actualDouble) < 0.001;
-    // } else if (type == bsoncxx::type::k_int32) {
-    //     auto expectedInt = expectedVal.get_int32();
-    //     auto actualInt = actualVal.get_int32();
-    //     return actualInt == expectedInt;
-    // } else if (type == bsoncxx::type::k_int64) {
-    //     auto expectedInt = expectedVal.get_int64();
-    //     auto actualInt = actualVal.get_int64();
-    //     return actualInt == expectedInt;
-    // } else if (type == bsoncxx::type::k_utf8) {
-    //     auto expectedStr = expectedVal.get_utf8();
-    //     auto actualStr = actualVal.get_utf8();
-    //     return expectedStr == actualStr;
+    } else if (type != actualVal.type()) {
+        BOOST_LOG_TRIVIAL(info) << "Types differ! ";
+        return false;
     } else if (type == bsoncxx::type::k_array) {
         bsoncxx::array::view expectedArr{expectedVal.get_array().value};
         bsoncxx::array::view actualArr{actualVal.get_array().value};
@@ -177,6 +172,7 @@ void AssertiveActor::run() {
         for (const auto&& _ : config) {
             auto expected = config->expectedExpr();
             auto actual = config->actualExpr();
+            auto name = config->name;
 
             auto assertOp = _assert.start();
 
@@ -184,10 +180,10 @@ void AssertiveActor::run() {
                 auto expectedRes = runCommandAndGetResult(config, expected);
                 auto actualRes = runCommandAndGetResult(config, actual);
                 if (equalBSONArrays(getBatchFromCommandResult(expectedRes.view()), getBatchFromCommandResult(actualRes.view()))) {
-                    BOOST_LOG_TRIVIAL(info) << " assert passed; results are equal.";
+                    BOOST_LOG_TRIVIAL(info) << name << " assert passed; results are equal.";
                     assertOp.success();
                 } else {
-                    BOOST_LOG_TRIVIAL(info) << " assert failed; results are unequal.";
+                    BOOST_LOG_TRIVIAL(info) << name << " assert failed; results are unequal.";
                     BOOST_THROW_EXCEPTION(MongoException("assert failed; results were unequal."));
                 }
             } catch (mongocxx::operation_exception& e) {

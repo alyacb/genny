@@ -8,31 +8,36 @@ Clients:
     QueryOptions:
       socketTimeoutMS: -1
 
-db: &db tpch
+ActorTemplates:
+- TemplateName: ValidateTPCHQueryActorTemplate
+  Config:
+    Name: &query {^Parameter: {Name: "Query", Default: ""}}
+    Type: AssertiveActor
+    Database: &db tpch
+    Phases:
+    - Repeat: 1
+      Database: *db
+      Expected:
+        aggregate: {^Join: {array: ["res_", *query]}}
+        pipeline: [{$sort: {num: 1}}]
+        cursor: {batchSize: {^Parameter: {Name: "BatchSize", Default: 101}}}
+      Actual: {^Parameter: {Name: "Actual", Default: {}}}
 
-Nop: &Nop {Nop: true}
-DropColl: &DropColl # TODO: refactor, drop all
-  Repeat: 1
-  Database: *db
-  Operation:
-    OperationName: RunCommand
-    OperationCommand:
-      drop: denormalized_q2
-
+# Note: since the queries are all raed-only and we don't care about timing metrics here, we can just run all the queries simultaneously.
 Actors:
-
-- Name: CleanupValidationCollections
-  Type: RunCommand
-  Database: *db
-  Phases:
-  - *Nop #*DropColl # Before running validation, drop collection.
-  - *Nop
-
-- Name: ValidateTPCHQueries
-  Type: AssertiveActor
-  Database: *db
-  Phases:
-  - *Nop
-  - LoadConfig:
-      Path: ../../../../phases/tpch/denormalized/Q2.yml
-      Key: ValidateTPCHDenormalizedQuery2
+- ActorFromTemplate:
+    TemplateName: ValidateTPCHQueryActorTemplate
+    TemplateParameters:
+      Query: 1
+      Actual: 
+        LoadConfig:
+          Path: ../../../../phases/tpch/denormalized/Q1.yml
+          Key: TPCHDenormalizedQuery1Aggregation
+- ActorFromTemplate:
+    TemplateName: ValidateTPCHQueryActorTemplate
+    TemplateParameters:
+      Query: 2
+      Actual: 
+        LoadConfig:
+          Path: ../../../../phases/tpch/denormalized/Q2.yml
+          Key: TPCHDenormalizedQuery2Aggregation

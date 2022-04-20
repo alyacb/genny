@@ -49,14 +49,3 @@ TPCHDenormalizedQuery2Explain:
       verbosity:
         executionStats
 
-ValidateTPCHDenormalizedQuery2:
-  Repeat: 1
-  Database: tpch
-  Expected:
-    aggregate: res_2
-    pipeline: [{$sort: {num: 1}}]
-    cursor: {batchSize: *batchSize}
-  Actual:
-    aggregate: *query2Coll
-    pipeline: *tpchDenormalizedQuery2AggregationPipeline
-    cursor: {batchSize: *batchSize}
