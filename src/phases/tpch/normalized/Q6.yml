@@ -11,7 +11,7 @@ query6Discount: &query6Discount {^Parameter: {Name: "Query6Discount", Default: 0
 query6Quantity: &query6Quantity {^Parameter: {Name: "Query6Quantity", Default: 24}}
 
 TPCHNormalizedQuery6:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query6

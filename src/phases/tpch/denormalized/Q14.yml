@@ -8,7 +8,7 @@ batchSize: &batchSize 101  # The default batch size.
 query14Date: &query14Date {^Parameter: {Name: "Query14Date", Default: "1995-09-01"}}
 
 TPCHDenormalizedQuery14:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query14

@@ -9,14 +9,22 @@ Clients:
       socketTimeoutMS: -1
 
 Actors:
-- Name: TPCHDenormalizedQuery2
+- Name: TPCHDenormalizedQuery2Cold
   Type: RunCommand
   Database: tpch
   Phases:
   - LoadConfig:
       Path: ../../../../phases/tpch/denormalized/Q2.yml
       Key: TPCHDenormalizedQuery2
+  - &Nop {Nop: true}
+# After the cold run, our caches should be warmed up.
+- Name: TPCHDenormalizedQuery2Hot
+  Type: RunCommand
+  Database: tpch
+  Phases:
+  - *Nop
+  - LoadConfig:
+      Path: ../../../../phases/tpch/denormalized/Q2.yml
+      Key: TPCHDenormalizedQuery2
       Parameters:
-        Query2Size: 15
-        Query2Type: "^.*BRASS$"
-        Query2Region: "EUROPE"
+        Repeat: 5

@@ -9,7 +9,7 @@ query5Region: &query5Region {^Parameter: {Name: "Query5Region", Default: "ASIA"}
 query5Date: &query5Date {^Parameter: {Name: "Query5Date", Default: "1994-01-01"}}
 
 TPCHNormalizedQuery5:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query5

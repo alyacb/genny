@@ -8,7 +8,7 @@ batchSize: &batchSize 101  # The default batch size.
 query1Delta: &query1Delta {^Parameter: {Name: "Query1Delta", Default: -90}}
 
 TPCHDenormalizedQuery1:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query1

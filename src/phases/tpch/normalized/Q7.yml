@@ -9,7 +9,7 @@ query7Nation1: &query7Nation1 {^Parameter: {Name: "Query7Nation1", Default: "FRA
 query7Nation2: &query7Nation2 {^Parameter: {Name: "Query7Nation2", Default: "GERMANY"}}
 
 TPCHNormalizedQuery7:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query7

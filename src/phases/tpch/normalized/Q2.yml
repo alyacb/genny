@@ -11,7 +11,7 @@ query2Type: &query2Type {^Parameter: {Name: "Query2Type", Default: "^.*BRASS$"}}
 query2Region: &query2Region {^Parameter: {Name: "Query2Region", Default: "EUROPE"}}
 
 TPCHNormalizedQuery2:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query2

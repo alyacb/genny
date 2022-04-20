@@ -10,7 +10,7 @@ query17Brand: &query17Brand {^Parameter: {Name: "Query17Brand", Default: "Brand#
 query17Container: &query17Container {^Parameter: {Name: "Query17Container", Default: "MED BOX"}}
 
 TPCHDenormalizedQuery17:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query17

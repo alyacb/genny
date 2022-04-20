@@ -8,7 +8,7 @@ batchSize: &batchSize 101  # The default batch size.
 query21Nation: &query21Nation {^Parameter: {Name: "Query1Delta", Default: "SAUDI ARABIA"}}
 
 TPCHNormalizedQuery21:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query21

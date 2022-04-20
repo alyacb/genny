@@ -16,7 +16,7 @@ query22CountryCode6: &query22CountryCode6 {^Parameter: {Name: "Query22CountryCod
 query22CountryCode7: &query22CountryCode7 {^Parameter: {Name: "Query22CountryCode7", Default: "17"}}
 
 TPCHDenormalizedQuery22:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query22

@@ -11,7 +11,7 @@ query8Region: &query8Region {^Parameter: {Name: "Query8Region", Default: "AMERIC
 query8Nation: &query8Nation {^Parameter: {Name: "Query8Nation", Default: "BRAZIL"}}
 
 TPCHNormalizedQuery8:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query8

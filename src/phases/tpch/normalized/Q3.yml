@@ -10,7 +10,7 @@ query3Segment: &query3Segment {^Parameter: {Name: "Query3Segment", Default: "BUI
 query3Date: &query3Date {^Parameter: {Name: "Query3Date", Default: "1995-03-15"}}
 
 TPCHNormalizedQuery3:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query3

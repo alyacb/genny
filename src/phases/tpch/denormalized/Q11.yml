@@ -9,7 +9,7 @@ query11Nation: &query11Nation {^Parameter: {Name: "Query11Nation", Default: "GER
 query11Fraction: &query11Fraction {^Parameter: {Name: "Query11Fraction", Default: 0.0001}}
 
 TPCHDenormalizedQuery11:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query11

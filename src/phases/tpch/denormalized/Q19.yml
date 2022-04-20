@@ -14,7 +14,7 @@ query19Brand3: &query19Brand3 {^Parameter: {Name: "Query19Brand3", Default: "Bra
 query19Quantity3: &query19Quantity3 {^Parameter: {Name: "Query19Quantity3", Default: 20}}
 
 TPCHDenormalizedQuery19:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query19

@@ -11,7 +11,7 @@ query16Type: &query16Type {^Parameter: {Name: "Query16Type", Default: "^MEDIUM P
 query16Sizes: &query16Sizes {^Parameter: {Name: "Query16Sizes", Default: [49, 14, 23, 45, 19, 3, 36, 9]}}
 
 TPCHNormalizedQuery16:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query16

@@ -11,7 +11,7 @@ query12ShipMode2: &query12ShipMode2 {^Parameter: {Name: "Query12ShipMode2", Defa
 query12Date: &query12Date {^Parameter: {Name: "Query12Date", Default: "1994-01-01"}}
 
 TPCHDenormalizedQuery12:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query12

@@ -8,7 +8,7 @@ batchSize: &batchSize 101  # The default batch size.
 query18Quantity: &query18Quantity {^Parameter: {Name: "Query18Quantity", Default: 300}}
 
 TPCHDenormalizedQuery18:
-  Repeat: 1
+  Repeat: {^Parameter: {Name: "Repeat", Default: 1}}
   Database: tpch
   Operations:
   - OperationMetricsName: Query18
