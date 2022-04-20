@@ -34,28 +34,28 @@ namespace genny::actor {
  * ```yaml
  * SchemaVersion: 2017-07-01
  * Actors:
- * - Name: AssertAggregationResult
- *   Type: AssertAggregationResult
+ * - Name: AssertiveActor
+ *   Type: AssertiveActor
  *   Phases:
  *   - Input: bool
  * ```
  *
- * Or you can fill out the generated workloads/docs/AssertAggregationResult.yml
+ * Or you can fill out the generated workloads/docs/AssertiveActor.yml
  * file with extended documentation. If you do this, please mention
- * that extended documentation can be found in the docs/AssertAggregationResult.yml
+ * that extended documentation can be found in the docs/AssertiveActor.yml
  * file.
  *
  * Owner: TODO (which github team owns this Actor?)
  */
-class AssertAggregationResult : public Actor {
+class AssertiveActor : public Actor {
 public:
-    explicit AssertAggregationResult(ActorContext& context);
-    ~AssertAggregationResult() = default;
+    explicit AssertiveActor(ActorContext& context);
+    ~AssertiveActor() = default;
 
     void run() override;
 
     static std::string_view defaultName() {
-        return "AssertAggregationResult";
+        return "AssertiveActor";
     }
 
     struct PhaseConfig;

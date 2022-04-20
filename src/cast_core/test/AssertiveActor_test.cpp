@@ -30,7 +30,7 @@ namespace {
 using namespace genny::testing;
 namespace bson_stream = bsoncxx::builder::stream;
 
-TEST_CASE_METHOD(MongoTestFixture, "AssertAggregationResult passes an assert", "[standalone][single_node_replset][three_node_replset][sharded][AssertAggregationResult]") {
+TEST_CASE_METHOD(MongoTestFixture, "AssertiveActor passes an assert", "[standalone][single_node_replset][three_node_replset][sharded][AssertiveActor]") {
 
     dropAllDatabases();
     auto db = client.database("test");
@@ -42,8 +42,8 @@ TEST_CASE_METHOD(MongoTestFixture, "AssertAggregationResult passes an assert", "
           Default:
             URI: )" + MongoTestFixture::connectionUri().to_string() + R"(
         Actors:
-        - Name: PassAssertAggregationResult
-          Type: AssertAggregationResult
+        - Name: PassAssertiveActor
+          Type: AssertiveActor
           Database: test
           Phases:
           - Repeat: 1
@@ -69,7 +69,7 @@ TEST_CASE_METHOD(MongoTestFixture, "AssertAggregationResult passes an assert", "
     }
 }
 
-TEST_CASE_METHOD(MongoTestFixture, "AssertAggregationResult fails an assert", "[standalone][single_node_replset][three_node_replset][sharded][AssertAggregationResult]") {
+TEST_CASE_METHOD(MongoTestFixture, "AssertiveActor fails an assert", "[standalone][single_node_replset][three_node_replset][sharded][AssertiveActor]") {
 
     dropAllDatabases();
     auto db = client.database("test");
@@ -84,8 +84,8 @@ TEST_CASE_METHOD(MongoTestFixture, "AssertAggregationResult fails an assert", "[
           Default:
             URI: )" + MongoTestFixture::connectionUri().to_string() + R"(
         Actors:
-        - Name: FailAssertAggregationResult
-          Type: AssertAggregationResult
+        - Name: FailAssertiveActor
+          Type: AssertiveActor
           Database: test
           Phases:
           - Repeat: 1

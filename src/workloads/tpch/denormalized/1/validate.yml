@@ -1,0 +1,38 @@
+SchemaVersion: 2018-07-01
+Owner: "@mongodb/product-query"
+Description: |
+  Validate TPC_H denormalized queries for scale 1.
+
+Clients:
+  Default:
+    QueryOptions:
+      socketTimeoutMS: -1
+
+db: &db tpch
+
+Nop: &Nop {Nop: true}
+DropColl: &DropColl # TODO: refactor, drop all
+  Repeat: 1
+  Database: *db
+  Operation:
+    OperationName: RunCommand
+    OperationCommand:
+      drop: denormalized_q2
+
+Actors:
+
+- Name: CleanupValidationCollections
+  Type: RunCommand
+  Database: *db
+  Phases:
+  - *Nop #*DropColl # Before running validation, drop collection.
+  - *Nop
+
+- Name: ValidateTPCHQueries
+  Type: AssertiveActor
+  Database: *db
+  Phases:
+  - *Nop
+  - LoadConfig:
+      Path: ../../../../phases/tpch/denormalized/Q2.yml
+      Key: ValidateTPCHDenormalizedQuery2

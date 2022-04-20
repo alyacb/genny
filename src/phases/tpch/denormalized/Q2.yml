@@ -11,7 +11,7 @@ query2Type: &query2Type {^Parameter: {Name: "Query2Type", Default: "^.*BRASS$"}}
 query2Region: &query2Region {^Parameter: {Name: "Query2Region", Default: "EUROPE"}}
 
 TPCHDenormalizedQuery2Aggregation: &TPCHDenormalizedQuery2Aggregation
-  aggregate: part
+  aggregate: &query2Coll part
   pipeline:
     [
       {$match: {$and: [{p_type: {$regex: *query2Type, $options: "si"}}, {p_size: {$eq: *query2Size}}]}},
@@ -52,10 +52,11 @@ TPCHDenormalizedQuery2Explain:
 ValidateTPCHDenormalizedQuery2:
   Repeat: 1
   Database: tpch
-  Operations:
-  - LoadConfig:
-    Path: ../../../../phases/tpch/Validate.yml
-    Key: ValidateTPCHQueryResults
-    Parameters:
-      ActualAggregation: *tpchDenormalizedQuery2Aggregation
-      ValidationCollection: res_2
+  Expected:
+    aggregate: res_2
+    pipeline: [{$sort: {num: 1}}]
+    cursor: {batchSize: *batchSize}
+  Actual:
+    aggregate: *query2Coll
+    pipeline: *tpchDenormalizedQuery2AggregationPipeline
+    cursor: {batchSize: *batchSize}

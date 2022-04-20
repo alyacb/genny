@@ -12,6 +12,9 @@ cmake-build-debug
 [._]sw[a-p]
 tags
 
+# vscode
+.vscode
+
 # generated
 build
 dist
