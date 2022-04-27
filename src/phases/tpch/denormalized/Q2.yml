@@ -48,4 +48,3 @@ TPCHDenormalizedQuery2Explain:
       explain: *TPCHDenormalizedQuery2Aggregation
       verbosity:
         executionStats
-
