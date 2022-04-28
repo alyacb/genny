@@ -1,4 +1,4 @@
-SchemaVersion: 10018-07-01
+SchemaVersion: 2018-07-01
 Owner: "@mongodb/product-query"
 Description: |
   Run TPC-H query 10 against the denormalized schema. Using an 'executionStats' explain causes each command to run its execution plan until no
@@ -21,7 +21,7 @@ TPCHDenormalizedQuery10Aggregation: &TPCHDenormalizedQuery10Aggregation
       {$group: {_id: {c_custkey: "$c_custkey", c_name: "$c_name", c_acctbal: "$c_acctbal", n_name: "$nation.n_name", c_address: "$c_address", c_phone: "$c_phone", c_comment: "$c_comment"}, revenue: {$sum: {$multiply: ["$lineitem.l_extendedprice", {$subtract: [1, "$lineitem.l_discount"]}]}}}},
       {$project: {_id: 0, c_custkey: "$_id.c_custkey", c_name: "$_id.c_name", c_acctbal: "$_id.c_acctbal", n_name: "$_id.n_name", c_address: "$_id.c_address", c_phone: "$_id.c_phone", c_comment: "$_id.c_comment", revenue: 1}},
       {$sort: {revenue: -1}},
-      {$limit: 100}
+      {$limit: 20}
     ]
   cursor: {batchSize: *batchSize}
   allowDiskUse: true
