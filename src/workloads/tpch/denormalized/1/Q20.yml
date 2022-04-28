@@ -21,36 +21,37 @@ Actors:
   - LoadConfig:
       Path: ../../../../phases/tpch/denormalized/Q20.yml
       Key: TPCHDenormalizedQuery20Explain
-  - &Nop {Nop: true}
-  - *Nop
+# TODO: uncomment once this query is sped up. >10 minute execution time.
+#   - &Nop {Nop: true}
+#   - *Nop
 
-# After the cold run, we need to warm up our caches. This is necessary since running aggregations
-# with explain normally does not result in caching of plans.
-- Name: TPCHDenormalizedQuery20Warmup
-  Type: RunCommand
-  Database: *db
-  Phases:
-  - *Nop
-  - Repeat: 1
-    Database: *db
-    Operations:
-    - OperationName: RunCommand
-      OperationCommand:
-        LoadConfig:
-          Path: ../../../../phases/tpch/denormalized/Q20.yml
-          Key: TPCHDenormalizedQuery20Aggregation
-  - *Nop
+# # After the cold run, we need to warm up our caches. This is necessary since running aggregations
+# # with explain normally does not result in caching of plans.
+# - Name: TPCHDenormalizedQuery20Warmup
+#   Type: RunCommand
+#   Database: *db
+#   Phases:
+#   - *Nop
+#   - Repeat: 1
+#     Database: *db
+#     Operations:
+#     - OperationName: RunCommand
+#       OperationCommand:
+#         LoadConfig:
+#           Path: ../../../../phases/tpch/denormalized/Q20.yml
+#           Key: TPCHDenormalizedQuery20Aggregation
+#   - *Nop
 
-# After the cold run, our caches should be warmed up.
-- Name: TPCHDenormalizedQuery20Hot
-  Type: RunCommand
-  Database: *db
-  Phases:
-  - *Nop
-  - *Nop
-  - LoadConfig:
-      Path: ../../../../phases/tpch/denormalized/Q20.yml
-      Key: TPCHDenormalizedQuery20
-      Parameters:
-        Repeat: 5
-        BatchSize: 186  # This query is expected to return more documents than the default batch size of 101.
+# # After the cold run, our caches should be warmed up.
+# - Name: TPCHDenormalizedQuery20Hot
+#   Type: RunCommand
+#   Database: *db
+#   Phases:
+#   - *Nop
+#   - *Nop
+#   - LoadConfig:
+#       Path: ../../../../phases/tpch/denormalized/Q20.yml
+#       Key: TPCHDenormalizedQuery20
+#       Parameters:
+#         Repeat: 5
+#         BatchSize: 186  # This query is expected to return more documents than the default batch size of 101.

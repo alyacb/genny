@@ -21,35 +21,36 @@ Actors:
   - LoadConfig:
       Path: ../../../../phases/tpch/normalized/Q18.yml
       Key: TPCHNormalizedQuery18Explain
-  - &Nop {Nop: true}
-  - *Nop
+# TODO: uncomment once this query is sped up. >10 minute execution time.
+#   - &Nop {Nop: true}
+#   - *Nop
 
-# After the cold run, we need to warm up our caches. This is necessary since running aggregations
-# with explain normally does not result in caching of plans.
-- Name: TPCHNormalizedQuery18Warmup
-  Type: RunCommand
-  Database: *db
-  Phases:
-  - *Nop
-  - Repeat: 1
-    Database: *db
-    Operations:
-    - OperationName: RunCommand
-      OperationCommand:
-        LoadConfig:
-          Path: ../../../../phases/tpch/normalized/Q18.yml
-          Key: TPCHNormalizedQuery18Aggregation
-  - *Nop
+# # After the cold run, we need to warm up our caches. This is necessary since running aggregations
+# # with explain normally does not result in caching of plans.
+# - Name: TPCHNormalizedQuery18Warmup
+#   Type: RunCommand
+#   Database: *db
+#   Phases:
+#   - *Nop
+#   - Repeat: 1
+#     Database: *db
+#     Operations:
+#     - OperationName: RunCommand
+#       OperationCommand:
+#         LoadConfig:
+#           Path: ../../../../phases/tpch/normalized/Q18.yml
+#           Key: TPCHNormalizedQuery18Aggregation
+#   - *Nop
 
-# After the cold run, our caches should be warmed up.
-- Name: TPCHNormalizedQuery18Hot
-  Type: RunCommand
-  Database: *db
-  Phases:
-  - *Nop
-  - *Nop
-  - LoadConfig:
-      Path: ../../../../phases/tpch/normalized/Q18.yml
-      Key: TPCHNormalizedQuery18
-      Parameters:
-        Repeat: 5
+# # After the cold run, our caches should be warmed up.
+# - Name: TPCHNormalizedQuery18Hot
+#   Type: RunCommand
+#   Database: *db
+#   Phases:
+#   - *Nop
+#   - *Nop
+#   - LoadConfig:
+#       Path: ../../../../phases/tpch/normalized/Q18.yml
+#       Key: TPCHNormalizedQuery18
+#       Parameters:
+#         Repeat: 5
