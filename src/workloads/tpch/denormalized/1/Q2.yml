@@ -23,7 +23,6 @@ Actors:
       Key: TPCHDenormalizedQuery2Explain
   - &Nop {Nop: true}
   - *Nop
-  - *Nop
 
 # After the cold run, we need to warm up our caches. This is necessary since running aggregations
 # with explain normally does not result in caching of plans.
@@ -41,7 +40,6 @@ Actors:
           Path: ../../../../phases/tpch/denormalized/Q2.yml
           Key: TPCHDenormalizedQuery2Aggregation
   - *Nop
-  - *Nop
 
 # After the cold run, our caches should be warmed up.
 - Name: TPCHDenormalizedQuery2Hot
@@ -55,15 +53,3 @@ Actors:
       Key: TPCHDenormalizedQuery2
       Parameters:
         Repeat: 5
-  - *Nop
-
-- Name: ValidateNormalizedQuery2
-  Type: AssertAggregationResult
-  Database: tpch
-  Phases:
-  - *Nop
-  - *Nop
-  - *Nop
-  - LoadConfig:
-      Path: ../../../../phases/tpch/denormalized/Q2.yml
-      Key: ValidateTPCHDenormalizedQuery2

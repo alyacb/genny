@@ -49,3 +49,10 @@ TPCHDenormalizedQuery2Explain:
       verbosity:
         executionStats
 
+ValidateTPCHDenormalizedQuery2:
+  LoadConfig:
+    Path: ../../../../phases/tpch/Validate.yml
+    Key: ValidateTPCHQueryResults
+    Parameters:
+      ActualAggregation: *TPCHDenormalizedQuery2Aggregation
+      ValidationCollection: res_2

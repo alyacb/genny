@@ -41,19 +41,19 @@ struct AssertiveActor::PhaseConfig {
     mongocxx::database database;
     DocumentGenerator expectedExpr;
     DocumentGenerator actualExpr;
-    std::string name;
+    std::optional<std::string> msg;
 
     PhaseConfig(PhaseContext& phaseContext, mongocxx::database&& db, ActorId id)
         : database{db},
           expectedExpr{phaseContext["Expected"].to<DocumentGenerator>(phaseContext, id)},
           actualExpr{phaseContext["Actual"].to<DocumentGenerator>(phaseContext, id)},
-          name{phaseContext["Name"].maybe<std::string>().value_or("")} {}
+          msg{phaseContext["Message"].maybe<std::string>()} {}
 };
 
 auto runCommandAndGetResult(AssertiveActor::PhaseConfig* config, bsoncxx::document::value& command) {
     auto cmdView = command.view();
 
-    BOOST_LOG_TRIVIAL(info) << " running command " << bsoncxx::to_json(cmdView);
+    BOOST_LOG_TRIVIAL(info) << "Running command " << bsoncxx::to_json(cmdView);
     auto res = config->database.run_command(std::move(command));
     auto resView = res.view();
 
@@ -172,19 +172,20 @@ void AssertiveActor::run() {
         for (const auto&& _ : config) {
             auto expected = config->expectedExpr();
             auto actual = config->actualExpr();
-            auto name = config->name;
 
             auto assertOp = _assert.start();
 
             try {
                 auto expectedRes = runCommandAndGetResult(config, expected);
                 auto actualRes = runCommandAndGetResult(config, actual);
+                auto msg = (config->msg ? "\"" + *(config->msg) + "\" ": "");
                 if (equalBSONArrays(getBatchFromCommandResult(expectedRes.view()), getBatchFromCommandResult(actualRes.view()))) {
-                    BOOST_LOG_TRIVIAL(info) << name << " assert passed; results are equal.";
+                    BOOST_LOG_TRIVIAL(info) << "Assert " << msg << "passed; results are equal.";
                     assertOp.success();
                 } else {
-                    BOOST_LOG_TRIVIAL(info) << name << " assert failed; results are unequal.";
-                    BOOST_THROW_EXCEPTION(MongoException("assert failed; results were unequal."));
+                    auto errStr = "assert " + msg + "failed; results were unequal.";
+                    BOOST_LOG_TRIVIAL(info) << "Assert " << msg << "failed; results are unequal.";
+                    BOOST_THROW_EXCEPTION(MongoException(errStr));
                 }
             } catch (mongocxx::operation_exception& e) {
                 BOOST_LOG_TRIVIAL(info)
