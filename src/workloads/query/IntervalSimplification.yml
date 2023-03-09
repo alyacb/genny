@@ -1,0 +1,129 @@
+SchemaVersion: 2018-07-01
+Owner: "@mongodb/query"
+Description: >
+  Skunkworks benchmark! Measures the performance of interval simplification optimization.
+
+Actors:
+# Total docs: 90k (non-matching) + 10k (matching) = 100k.
+- Name: InsertData
+  Type: Loader
+  Threads: 1
+  Phases:
+  # Insert non-matching docs (sel: 90%).
+  - Repeat: 1
+    Database: &db test
+    Threads: 1
+    CollectionCount: 1
+    DocumentCount: &numDocs 90000
+    BatchSize: &batchSize 10000
+    Document:
+      a: &a {^RandomInt: {min: 1, max: 10}}
+      b: &b {^RandomInt: {min: 1, max: 100}}
+      c: &c {^RandomInt: {min: 1, max: 1000}}
+      d: &d {^RandomInt: {min: 1, max: *numDocs}}
+  # Insert matching docs (sel: 10%).
+  - Repeat: 1
+    Database: *db
+    Threads: 1
+    CollectionCount: 1
+    DocumentCount: 10000
+    BatchSize: *batchSize
+    Document:
+      a: 0
+      b: 0
+      c: 0
+      d: 0
+  - &Nop {Nop: true}
+  - *Nop
+  - *Nop
+  - *Nop
+
+- Name: CreateIndex
+  Type: RunCommand
+  Phases:
+  - *Nop
+  - *Nop
+  - Repeat: 1
+    Database: *db
+    Operations:
+    - OperationName: RunCommand
+      OperationMetricsName: CreateIndex1
+      OperationCommand:
+        createIndexes: &coll "Collection0"
+        indexes:
+        - {key: {d: 1, b: 1}, name: "d1b1"}
+        - {key: {a: 1}, name: "a1"}
+  - *Nop
+  - *Nop
+  - *Nop
+
+- Name: Quiesce
+  Type: QuiesceActor
+  Threads: 1
+  Database: *db
+  Phases:
+  - *Nop
+  - *Nop
+  - *Nop
+  - Repeat: 1
+  - *Nop
+  - *Nop
+
+# Warm up plan cache!
+- Name: Work
+  Type: RunCommand
+  Threads: 1
+  Phases:
+  - *Nop
+  - *Nop
+  - *Nop
+  - *Nop
+  - Repeat: 1
+    Database: *db
+    Operations:
+    - OperationMetricsName: QueryColdRun
+      OperationName: RunCommand
+      OperationCommand:
+        explain:
+          aggregate: *coll
+          pipeline: &pipeline [{$match: {$and: [{b: 0}, {$or: [{a: 0}, {$and: [{d: {$in: [34, 45]}}, {d: {$nin: [34, 45]}}]}]}]}}]
+          allowDiskUse: true
+          cursor: {batchSize: *batchSize}
+        verbosity:
+          executionStats
+  - *Nop
+
+# Multiple runs once plan cache warmed up!
+- Name: Work
+  Type: RunCommand
+  Threads: 1
+  Phases:
+  - *Nop
+  - *Nop
+  - *Nop
+  - *Nop
+  - *Nop
+  - Repeat: 20
+    Database: *db
+    Operations:
+    - OperationMetricsName: QueryHotRun
+      OperationName: RunCommand
+      OperationCommand:
+        explain:
+          aggregate: *coll
+          pipeline: *pipeline
+          allowDiskUse: true
+          cursor: {batchSize: *batchSize}
+        verbosity:
+          executionStats
+
+AutoRun:
+- When:
+    mongodb_setup:
+      $eq:
+      - standalone
+      - standalone-all-feature-flags
+    branch_name:
+      $gte:
+      - v6.3
+
