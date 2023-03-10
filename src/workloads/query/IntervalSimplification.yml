@@ -122,8 +122,4 @@ AutoRun:
     mongodb_setup:
       $eq:
       - standalone
-      - standalone-all-feature-flags
-    branch_name:
-      $gte:
-      - v6.3
 
