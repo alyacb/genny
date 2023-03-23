@@ -135,5 +135,6 @@ AutoRun:
       - replica-noflowcontrol
       - single-replica
       - standalone
+      - standalone-bonsai
       - standalone-classic-query-engine
       - standalone-sbe

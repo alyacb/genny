@@ -263,6 +263,7 @@ AutoRun:
       - replica-all-feature-flags
       - shard-lite
       - standalone
+      - standalone-bonsai
       - standalone-classic-query-engine
       - standalone-sbe
     branch_name:

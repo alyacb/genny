@@ -26,6 +26,7 @@ AutoRun:
     mongodb_setup:
       $eq:
       - standalone
+      - standalone-bonsai
       - standalone-classic-query-engine
       - standalone-dsi-integration-test
       - standalone-sbe

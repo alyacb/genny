@@ -267,6 +267,7 @@ AutoRun:
       $eq:
       - standalone
       - standalone-all-feature-flags
+      - standalone-bonsai
       - standalone-classic-query-engine
       - standalone-sbe
     branch_name:
