@@ -1637,7 +1637,6 @@ struct CrudActor::PhaseConfig {
                 phaseContext.actor().operation("DocsReturned", id),
             };
         }
-        BOOST_LOG_TRIVIAL(info) << "ENABLE QUERY STATS: " << enableQueryStats << ", init? " << queryStats.has_value();
 
         auto name = collectionName.generateName(id);
         auto addOpCallback = [&](const Node& node) -> std::unique_ptr<BaseOperation> {
@@ -1670,7 +1669,6 @@ void enableQueryStatsCache(mongocxx::database& adminDB, const std::string& query
     auto paramRes = adminDB.run_command(
         make_document(kvp("getParameter", 1), kvp("internalQueryStatsCacheSize", 1)));
     auto docIt = paramRes.find("internalQueryStatsCacheSize");
-    BOOST_LOG_TRIVIAL(info) << " QueryStatsCache size " << docIt->get_string().value;
 }
 void disableQueryStatsCache(mongocxx::database& adminDB) {
     adminDB.run_command(
