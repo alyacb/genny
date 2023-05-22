@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <bsoncxx/json.hpp>
 #include <gennylib/context.hpp>
 
-#include <memory>
-#include <set>
-#include <filesystem>
-#include <sstream>
 #include <boost/algorithm/string.hpp>
+#include <filesystem>
+#include <memory>
+#include <mongocxx/client.hpp>
+#include <set>
+#include <sstream>
 
 #include <mongocxx/instance.hpp>
 #include <mongocxx/pool.hpp>
@@ -37,6 +39,22 @@ namespace genny {
 // Default value selected from random.org, by selecting 2 random numbers
 // between 1 and 10^9 and concatenating.
 auto RNG_SEED_BASE = 269849313357703264;
+
+using bsoncxx::builder::basic::kvp;
+using bsoncxx::builder::basic::make_document;
+void enableQueryStatsCache(mongocxx::database& adminDB, const std::string& queryStatsCacheSize) {
+    adminDB.run_command(make_document(kvp("setParameter", 1),
+                                      kvp("internalQueryStatsCacheSize", queryStatsCacheSize)));
+    auto paramRes = adminDB.run_command(
+        make_document(kvp("getParameter", 1), kvp("internalQueryStatsCacheSize", 1)));
+    BOOST_LOG_TRIVIAL(info) << "ENABLED QSC AT: " << bsoncxx::to_json(paramRes.view());
+}
+void disableQueryStatsCache(mongocxx::database& adminDB) {
+    adminDB.run_command(
+        make_document(kvp("setParameter", 1), kvp("internalQueryStatsCacheSize", "0MB")));
+    BOOST_LOG_TRIVIAL(info) << "DISABLED QSC";
+}
+
 
 WorkloadContext::WorkloadContext(const Node& node,
                                  Orchestrator& orchestrator,
@@ -81,8 +99,12 @@ WorkloadContext::WorkloadContext(const Node& node,
     _seedGenerator.seed((*this)["RandomSeed"].maybe<long>().value_or(RNG_SEED_BASE));
 
     // Make a bunch of actor contexts
+    bool enableQSC = false;
     for (const auto& [k, actor] : (*this)["Actors"]) {
         _actorContexts.emplace_back(std::make_unique<genny::ActorContext>(actor, *this));
+        if (!enableQSC && actor["EnableQueryStats"].maybe<bool>().value_or(false)) {
+            enableQSC = true;
+        }
     }
 
     ActorBucket bucket;
@@ -99,6 +121,22 @@ WorkloadContext::WorkloadContext(const Node& node,
         [&](const Orchestrator*orchestrator, PhaseNumber phase) { this->_coordinator.onPhaseStart(phase); });
     this->_orchestrator->addPostPhaseStopHook(
         [&](const Orchestrator*orchestrator, PhaseNumber phase) { this->_coordinator.onPhaseStop(phase); });
+
+    if (enableQSC) {
+        this->_orchestrator->addPrePhaseStartHook([&](const Orchestrator*, PhaseNumber phase) {
+            auto client = this->client();
+            auto adminDB = client->database("admin");
+            // TODO: verify presence of internal "test-only" query knob.
+            enableQueryStatsCache(adminDB, "2MB");
+        });
+        this->_orchestrator->addPostPhaseStopHook([&](const Orchestrator*, PhaseNumber phase) {
+            auto client = this->client();
+            auto adminDB = client->database("admin");
+
+            // Disable queryStats.
+            disableQueryStatsCache(adminDB);
+        });
+    }
     _done = true;
 }
 

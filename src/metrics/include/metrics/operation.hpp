@@ -468,6 +468,10 @@ public:
         _op->reportSynthetic(finished, duration, number, ops, size, errors, outcome);
     }
 
+    std::string name() const {
+        return _op->getActorName() + "." + _op->getOpName();
+    }
+
 
 private:
     internals::OperationImpl<ClockSource>* _op;

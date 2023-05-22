@@ -8,6 +8,7 @@ ExpressionTemplate:
   Type: CrudActor
   Database: &db {^Parameter: {Name: "database", Default: test}}
   Threads: {^Parameter: {Name: "threads", Default: 1}}
+  EnableQueryStats: true
   Phases:
     OnlyActiveInPhases:
       Active: {^Parameter: {Name: "active", Default: [0]}}

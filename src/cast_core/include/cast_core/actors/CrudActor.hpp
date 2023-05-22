@@ -100,6 +100,9 @@ private:
     struct CollectionName;
     PhaseLoop<PhaseConfig> _loop;
     genny::DefaultRandom& _rng;
+
+    // TODO: can we somehow move this down to the operation level?
+    bool _collectQueryStats;
 };
 
 }  // namespace genny::actor

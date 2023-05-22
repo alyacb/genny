@@ -40,6 +40,9 @@
 using BsonView = bsoncxx::document::view;
 using CrudActor = genny::actor::CrudActor;
 using bsoncxx::type;
+using bsoncxx::builder::basic::kvp;
+using bsoncxx::builder::basic::make_array;
+using bsoncxx::builder::basic::make_document;
 
 namespace {
 
@@ -1546,6 +1549,20 @@ struct CrudActor::CollectionName {
         return "Collection" + std::to_string(collectionNumber);
     }
 };
+
+bsoncxx::document::value getQueryStats(mongocxx::database& adminDB, const std::string& db, const std::string& coll) {
+    auto pipeline =
+        make_array(make_document(kvp("$queryStats", make_document())),
+                   make_document(kvp("$match", make_document(kvp("key.queryShape.cmdNs",
+                      make_document(kvp("db", db), kvp("coll", coll))
+                   )))),
+                   // make_document(kvp("$limit", 1)), // TODO: another filter on $comment? TBD.
+                   make_document(kvp("$replaceRoot", make_document(kvp("newRoot", "$metrics")))));
+    auto res = adminDB.run_command(make_document(
+        kvp("aggregate", 1), kvp("pipeline", pipeline), kvp("cursor", make_document())));
+    return res;
+}
+
 struct CrudActor::PhaseConfig {
     std::vector<std::unique_ptr<BaseOperation>> operations;
     metrics::Operation metrics;
@@ -1553,11 +1570,35 @@ struct CrudActor::PhaseConfig {
     std::string dbName;
     CrudActor::CollectionName collectionName;
 
+    void reportQueryStats(const std::string& outputPath, bsoncxx::document::value& queryStatsDoc) {
+        auto batch = queryStatsDoc.find("cursor")
+                           ->get_document()
+                           .view()
+                           .find("firstBatch")
+                           ->get_array().value;
+
+        if (batch.empty()) {
+            return;  // We can't report if there is nothing to report!
+        }
+
+        auto doc = batch.find(0)->get_document().view();
+        std::cout << outputPath << std::endl;
+        auto op = boost::filesystem::path{outputPath};
+        auto dirname = op.parent_path();
+        if (!boost::filesystem::exists(dirname)) {
+            boost::filesystem::create_directories(dirname);
+        }
+        std::ofstream of{op};
+        of << bsoncxx::to_json(doc) << std::endl;
+    }
+
     std::unique_ptr<BaseOperation> addOperation(const Node& node,
                                                 mongocxx::pool::entry& client,
                                                 const std::string& name,
                                                 PhaseContext& phaseContext,
-                                                ActorId id) const {
+                                                ActorId id) {
+        auto enableQueryStats =
+            phaseContext.actor().get("EnableQueryStats").maybe<bool>().value_or(false);
         std::string database = node["Database"].maybe<std::string>().value_or(dbName);
         std::string collection = node["Collection"].maybe<std::string>().value_or(name);
         CollectionHandle collectionHandle(&*client, std::move(database), std::move(collection));
@@ -1592,13 +1633,31 @@ struct CrudActor::PhaseConfig {
             // non-trivial to do so in a non-breaking fashion.
             std::ostringstream stm;
             stm << *metricsName << "." << opMetricsName;
+            auto stmstr = stm.str();
 
             return opCreator(yamlCommand,
                              onSession,
                              std::move(collectionHandle),
-                             phaseContext.actor().operation(stm.str(), id),
+                             phaseContext.actor().operation(stmstr, id),
                              phaseContext,
                              id);
+        }
+
+        // TODO: move this before previous condition?
+        if (enableQueryStats) {
+            auto& orchestrator = phaseContext.actor().orchestrator();
+            orchestrator.addPostPhaseStopHook([&](const Orchestrator*, PhaseNumber phase) {
+                if (phase == phaseContext.getPhaseNumber()) {
+                    auto adminDB = (*client)["admin"];
+                    const auto& collName = collectionName.collectionName.value_or("nocoll");
+                    // Retrieve & report metrics.
+                    auto res = getQueryStats(adminDB, dbName, collName);
+                    BOOST_LOG_TRIVIAL(info)
+                        << " QueryStatsActor returns " << bsoncxx::to_json(res) << ", nsp " << dbName << "." << collName;
+                    reportQueryStats(
+                        "build/WorkloadOutput/ExtraMetrics/" + metrics.name() + ".json", res);
+                }
+            });
         }
 
         return opCreator(yamlCommand,
@@ -1642,6 +1701,7 @@ struct CrudActor::PhaseConfig {
 };
 
 void CrudActor::run() {
+    boost::optional<mongocxx::database> adminDB;
     for (auto&& config : _loop) {
         auto session = _client->start_session();
         if (!config.isNop()) {
