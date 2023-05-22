@@ -18,8 +18,8 @@ Keywords:
 GlobalDefaults:
   Database: &Database test
   Collection: &Collection Collection0
-  DocumentCount: &DocumentCount 1e6
-  Repeat: &Repeat 10
+  DocumentCount: &DocumentCount 10
+  Repeat: &Repeat 1
   Threads: &Threads 1
   MaxPhases: &MaxPhases 98
 

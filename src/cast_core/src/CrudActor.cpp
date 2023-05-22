@@ -40,6 +40,9 @@
 using BsonView = bsoncxx::document::view;
 using CrudActor = genny::actor::CrudActor;
 using bsoncxx::type;
+using bsoncxx::builder::basic::kvp;
+using bsoncxx::builder::basic::make_array;
+using bsoncxx::builder::basic::make_document;
 
 namespace {
 
@@ -1548,9 +1551,16 @@ struct CrudActor::CollectionName {
         return "Collection" + std::to_string(collectionNumber);
     }
 };
+
+struct QueryStatsMetrics {
+    metrics::Operation execTime;
+    metrics::Operation docsReturned;
+};
+
 struct CrudActor::PhaseConfig {
     std::vector<std::unique_ptr<BaseOperation>> operations;
     metrics::Operation metrics;
+    boost::optional<QueryStatsMetrics> queryStats;
     StateMachine fsm;
     std::string dbName;
     CrudActor::CollectionName collectionName;
@@ -1612,11 +1622,22 @@ struct CrudActor::PhaseConfig {
                          id);
     }
 
-    PhaseConfig(PhaseContext& phaseContext, mongocxx::pool::entry& client, ActorId id)
+    PhaseConfig(PhaseContext& phaseContext,
+                mongocxx::pool::entry& client,
+                ActorId id,
+                bool enableQueryStats)
         : dbName{getDbName(phaseContext)},
           metrics{phaseContext.actor().operation("Crud", id)},
           fsm{phaseContext, id},
           collectionName{phaseContext} {
+        
+        if (enableQueryStats) {
+            queryStats = QueryStatsMetrics{
+                phaseContext.actor().operation("ExecTime", id),
+                phaseContext.actor().operation("DocsReturned", id),
+            };
+        }
+        BOOST_LOG_TRIVIAL(info) << "ENABLE QUERY STATS: " << enableQueryStats << ", init? " << queryStats.has_value();
 
         auto name = collectionName.generateName(id);
         auto addOpCallback = [&](const Node& node) -> std::unique_ptr<BaseOperation> {
@@ -1643,11 +1664,55 @@ struct CrudActor::PhaseConfig {
     }
 };
 
+void enableQueryStatsCache(mongocxx::database& adminDB, const std::string& queryStatsCacheSize) {
+    adminDB.run_command(make_document(kvp("setParameter", 1),
+                                      kvp("internalQueryStatsCacheSize", queryStatsCacheSize)));
+    auto paramRes = adminDB.run_command(
+        make_document(kvp("getParameter", 1), kvp("internalQueryStatsCacheSize", 1)));
+    auto docIt = paramRes.find("internalQueryStatsCacheSize");
+    BOOST_LOG_TRIVIAL(info) << " QueryStatsCache size " << docIt->get_string().value;
+}
+void disableQueryStatsCache(mongocxx::database& adminDB) {
+    adminDB.run_command(
+        make_document(kvp("setParameter", 1), kvp("internalQueryStatsCacheSize", "0MB")));
+}
+
+bsoncxx::document::value getQueryStats(mongocxx::database& adminDB, const std::string& nsp) {
+    auto pipeline = make_array(
+        make_document(kvp("$queryStats", make_document())),
+        make_document(kvp("$match", make_document(kvp("key.namespace", nsp)))),
+        make_document(kvp("$limit", 1)),
+        make_document(kvp("$replaceRoot", make_document(kvp("newRoot", "$metrics"))))
+    );
+    auto res = adminDB.run_command(make_document(
+        kvp("aggregate", 1), kvp("pipeline", pipeline), kvp("cursor", make_document())));
+    return res;
+}
+
+void reportQueryStats(QueryStatsMetrics& queryStats, bsoncxx::document::value& queryStatsDoc) {
+    auto doc = queryStatsDoc.find("cursor")->get_document().view().find("firstBatch")->get_array().value.find(0)->get_document().view();
+    auto docsReturnedSum = doc.find("docsReturned")->get_document().view().find("sum")->get_int64();
+    auto execStatsSum = doc.find("queryExecMicros")->get_document().view().find("sum")->get_int64();
+    auto execCount = doc.find("execCount")->get_int64();
+    queryStats.execTime.report(
+        metrics::clock::now(),
+        std::chrono::microseconds{execStatsSum/execCount});
+    queryStats.docsReturned.report(
+        metrics::clock::now(),
+        std::chrono::microseconds{docsReturnedSum/execCount});
+}
+
 void CrudActor::run() {
+    boost::optional<mongocxx::database> adminDB;
     for (auto&& config : _loop) {
         auto session = _client->start_session();
         if (!config.isNop()) {
             config->fsm.onNewPhase(config.isNop(), _rng);
+            if (_collectQueryStats) {
+                adminDB = (*_client)["admin"];
+                disableQueryStatsCache(*adminDB);
+                enableQueryStatsCache(*adminDB, "1%");
+            }
         }
         for (const auto&& _ : config) {
             auto metricsContext = config->metrics.start();
@@ -1662,14 +1727,25 @@ void CrudActor::run() {
             }
             metricsContext.success();
         }
+        if (!config.isNop() && _collectQueryStats && config->queryStats) {
+            std::string nsp = config->dbName + "." + config->collectionName.collectionName.value_or("NONO");
+            // Retrieve & report metrics.
+            auto res = getQueryStats(*adminDB, nsp);
+            BOOST_LOG_TRIVIAL(info) << " QueryStatsActor returns " << bsoncxx::to_json(res) << ", nsp " << nsp;
+            reportQueryStats(*(config->queryStats), res);
+            
+            // Disable queryStats.
+            disableQueryStatsCache(*adminDB);
+        }
     }
 }
 
 CrudActor::CrudActor(genny::ActorContext& context)
     : Actor(context),
+      _collectQueryStats(context.get("EnableQueryStats").maybe<bool>().value_or(false)),
       _client{std::move(
           context.client(context.get("ClientName").maybe<std::string>().value_or("Default")))},
-      _loop{context, _client, CrudActor::id()},
+      _loop{context, _client, CrudActor::id(), context.get("EnableQueryStats").maybe<bool>().value_or(false)},
       _rng{context.workload().getRNGForThread(CrudActor::id())} {}
 
 namespace {
