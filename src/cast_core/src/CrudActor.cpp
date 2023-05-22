@@ -661,6 +661,7 @@ private:
 };
 
 struct FindOperation : public BaseOperation {
+    // TODO: update this to check telemetry later.
     FindOperation(const Node& opNode,
                   bool onSession,
                   mongocxx::collection collection,
@@ -707,6 +708,7 @@ private:
 };
 
 struct FindOneOperation : public BaseOperation {
+    // TODO: update this to check telemetry later.
     FindOneOperation(const Node& opNode,
                      bool onSession,
                      mongocxx::collection collection,
@@ -760,6 +762,7 @@ private:
 };
 
 struct AggregateOperation : public BaseOperation {
+    // TODO: update this to check telemetry later.
     AggregateOperation(const Node& opNode,
                        bool onSession,
                        mongocxx::collection collection,
