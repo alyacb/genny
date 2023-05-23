@@ -417,7 +417,7 @@ public:
      *     when the operation finished. This will be used as the time point the event
      *     occurred and `finished - duration` will be used as when the event started.
      *
-     * @paramnumber
+     * @param number
      *     The number of iterations that occurred before the operation was reported. This
      *     member will almost always be 1 unless an actor decides to periodically report
      *     an operation in its for loop.

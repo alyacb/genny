@@ -1554,7 +1554,6 @@ struct CrudActor::CollectionName {
 
 struct QueryStatsMetrics {
     metrics::Operation execTime;
-    metrics::Operation docsReturned;
 };
 
 struct CrudActor::PhaseConfig {
@@ -1569,7 +1568,8 @@ struct CrudActor::PhaseConfig {
                                                 mongocxx::pool::entry& client,
                                                 const std::string& name,
                                                 PhaseContext& phaseContext,
-                                                ActorId id) const {
+                                                ActorId id,
+                                                bool enableQueryStats) {
         std::string database = node["Database"].maybe<std::string>().value_or(dbName);
         std::string collection = node["Collection"].maybe<std::string>().value_or(name);
         CollectionHandle collectionHandle(&*client, std::move(database), std::move(collection));
@@ -1604,13 +1604,26 @@ struct CrudActor::PhaseConfig {
             // non-trivial to do so in a non-breaking fashion.
             std::ostringstream stm;
             stm << *metricsName << "." << opMetricsName;
+            auto stmstr = stm.str();
+
+            if (enableQueryStats) {
+                queryStats = QueryStatsMetrics{
+                    phaseContext.actor().operation(stmstr + ".ExecTime", id),
+                };
+            }
 
             return opCreator(yamlCommand,
                              onSession,
                              std::move(collectionHandle),
-                             phaseContext.actor().operation(stm.str(), id),
+                             phaseContext.actor().operation(stmstr, id),
                              phaseContext,
                              id);
+        }
+
+        if (enableQueryStats) {
+            queryStats = QueryStatsMetrics{
+                phaseContext.actor().operation(opMetricsName + ".ExecTime", id),
+            };
         }
 
         return opCreator(yamlCommand,
@@ -1630,17 +1643,10 @@ struct CrudActor::PhaseConfig {
           metrics{phaseContext.actor().operation("Crud", id)},
           fsm{phaseContext, id},
           collectionName{phaseContext} {
-        
-        if (enableQueryStats) {
-            queryStats = QueryStatsMetrics{
-                phaseContext.actor().operation("ExecTime", id),
-                phaseContext.actor().operation("DocsReturned", id),
-            };
-        }
 
         auto name = collectionName.generateName(id);
         auto addOpCallback = [&](const Node& node) -> std::unique_ptr<BaseOperation> {
-            return addOperation(node, client, name, phaseContext, id);
+            return addOperation(node, client, name, phaseContext, id, enableQueryStats);
         };
         fsm.setup(addOpCallback);
 
@@ -1688,16 +1694,64 @@ bsoncxx::document::value getQueryStats(mongocxx::database& adminDB, const std::s
 }
 
 void reportQueryStats(QueryStatsMetrics& queryStats, bsoncxx::document::value& queryStatsDoc) {
-    auto doc = queryStatsDoc.find("cursor")->get_document().view().find("firstBatch")->get_array().value.find(0)->get_document().view();
-    auto docsReturnedSum = doc.find("docsReturned")->get_document().view().find("sum")->get_int64();
-    auto execStatsSum = doc.find("queryExecMicros")->get_document().view().find("sum")->get_int64();
+    auto doc = queryStatsDoc.find("cursor")
+                   ->get_document()
+                   .view()
+                   .find("firstBatch")
+                   ->get_array()
+                   .value.find(0)
+                   ->get_document()
+                   .view();
     auto execCount = doc.find("execCount")->get_int64();
-    queryStats.execTime.report(
-        metrics::clock::now(),
-        std::chrono::microseconds{execStatsSum/execCount});
-    queryStats.docsReturned.report(
-        metrics::clock::now(),
-        std::chrono::microseconds{docsReturnedSum/execCount});
+
+    auto docsReturned = doc.find("docsReturned")->get_document().view();
+    auto docsReturnedSum = docsReturned.find("sum")->get_int64();
+    auto docsReturnedMin = docsReturned.find("min")->get_int64();
+    auto docsReturnedMax = docsReturned.find("max")->get_int64();
+
+    auto execMicros = doc.find("queryExecMicros")->get_document().view();
+    auto execMicrosSum = execMicros.find("sum")->get_int64();
+    auto execMicrosMin = execMicros.find("min")->get_int64();
+    auto execMicrosMax = execMicros.find("max")->get_int64();
+
+    auto time = metrics::clock::now();
+    if (execCount == 1) {
+        queryStats.execTime.report(time,
+                                   std::chrono::microseconds{execMicrosSum},
+                                   metrics::OutcomeType::kSuccess,
+                                   docsReturnedSum, /* Number of documents. */
+                                   0,               /* Size of documents (unknown). */
+                                   execCount /* Number of iterations. */);
+    } else if (execCount > 1) {
+        // We have multiple measurements, so at the very least we can log the min & max separately.
+        auto execMicrosMinusBounds = execMicrosSum - execMicrosMin - execMicrosMax;
+        auto execCountMinusBounds = execCount - 2;
+        // Note that the docs min & max don't necessarily correspond to the 'execMicros'
+        // measurement. We will, however, log them together!
+        auto docCountMinusBounds = docsReturnedSum - docsReturnedMax - docsReturnedMin;
+
+        // Log min time separately, together with min number of docs returned.
+        queryStats.execTime.report(time,
+                                   std::chrono::microseconds{execMicrosMin},
+                                   metrics::OutcomeType::kSuccess,
+                                   docsReturnedMin
+                                   /* Number of documents. */);
+
+        // Log overall exec time and number of operations & docs returned, excluding the extreme
+        // values (min & max).
+        queryStats.execTime.report(time,
+                                   std::chrono::microseconds{execMicrosMinusBounds},
+                                   metrics::OutcomeType::kSuccess,
+                                   execCountMinusBounds, /* Number of documents. */
+                                   0,                    /* Errors. */
+                                   execCountMinusBounds /* Number of iterations. */);
+
+        // Log max time separately, together with max number of docs returned.
+        queryStats.execTime.report(time,
+                                   std::chrono::microseconds{execMicrosMax},
+                                   metrics::OutcomeType::kSuccess,
+                                   docsReturnedMax /* Number of documents. */);
+    }  // Else do nothing.
 }
 
 void CrudActor::run() {
