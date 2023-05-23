@@ -664,7 +664,6 @@ private:
 };
 
 struct FindOperation : public BaseOperation {
-    // TODO: update this to check telemetry later.
     FindOperation(const Node& opNode,
                   bool onSession,
                   mongocxx::collection collection,
@@ -711,7 +710,6 @@ private:
 };
 
 struct FindOneOperation : public BaseOperation {
-    // TODO: update this to check telemetry later.
     FindOneOperation(const Node& opNode,
                      bool onSession,
                      mongocxx::collection collection,
@@ -765,7 +763,6 @@ private:
 };
 
 struct AggregateOperation : public BaseOperation {
-    // TODO: update this to check telemetry later.
     AggregateOperation(const Node& opNode,
                        bool onSession,
                        mongocxx::collection collection,
@@ -1761,6 +1758,7 @@ void CrudActor::run() {
         if (!config.isNop()) {
             config->fsm.onNewPhase(config.isNop(), _rng);
             if (_collectQueryStats) {
+                // TODO: verify presence of internal "test-only" query knob.
                 adminDB = (*_client)["admin"];
                 disableQueryStatsCache(*adminDB);
                 enableQueryStatsCache(*adminDB, "1%");
