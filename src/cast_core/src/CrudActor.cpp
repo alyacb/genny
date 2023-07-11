@@ -1597,8 +1597,8 @@ struct CrudActor::PhaseConfig {
                                                 const std::string& name,
                                                 PhaseContext& phaseContext,
                                                 ActorId id) {
-        auto enableQueryStats =
-            phaseContext.actor().get("EnableQueryStats").maybe<bool>().value_or(false);
+        auto enableQueryStats = true;  // Enable for ALL workloads.
+        // phaseContext.actor().get("EnableQueryStats").maybe<bool>().value_or(false);
         std::string database = node["Database"].maybe<std::string>().value_or(dbName);
         std::string collection = node["Collection"].maybe<std::string>().value_or(name);
         CollectionHandle collectionHandle(&*client, std::move(database), std::move(collection));

@@ -33,6 +33,11 @@
 
 #include <value_generators/DocumentGenerator.hpp>
 
+using bsoncxx::type;
+using bsoncxx::builder::basic::kvp;
+using bsoncxx::builder::basic::make_array;
+using bsoncxx::builder::basic::make_document;
+
 namespace {
 /**
  * @private
@@ -107,6 +112,40 @@ struct RunCommandOperationConfig {
     const bool awaitStepdown = false;
 };
 
+bsoncxx::document::value getQueryStats(mongocxx::database& adminDB,
+                                       const std::string& db,
+                                       const std::string& coll) {
+    auto pipeline = make_array(
+        make_document(kvp("$queryStats", make_document())),
+        make_document(kvp("$match",
+                          make_document(kvp("key.queryShape.cmdNs",
+                                            make_document(kvp("db", db), kvp("coll", coll)))))),
+        // make_document(kvp("$limit", 1)), // TODO: another filter on $comment? TBD.
+        make_document(kvp("$replaceRoot", make_document(kvp("newRoot", "$metrics")))));
+    auto res = adminDB.run_command(make_document(
+        kvp("aggregate", 1), kvp("pipeline", pipeline), kvp("cursor", make_document())));
+    return res;
+}
+
+void reportQueryStats(const std::string& outputPath, bsoncxx::document::value& queryStatsDoc) {
+    auto batch =
+        queryStatsDoc.find("cursor")->get_document().view().find("firstBatch")->get_array().value;
+
+    if (batch.empty()) {
+        return;  // We can't report if there is nothing to report!
+    }
+
+    auto doc = batch.find(0)->get_document().view();
+    std::cout << outputPath << std::endl;
+    auto op = boost::filesystem::path{outputPath};
+    auto dirname = op.parent_path();
+    if (!boost::filesystem::exists(dirname)) {
+        boost::filesystem::create_directories(dirname);
+    }
+    std::ofstream of{op};
+    of << bsoncxx::to_json(doc) << std::endl;
+}
+
 }  // namespace
 
 namespace genny {
@@ -151,6 +190,42 @@ public:
 
         auto options =
             node.maybe<DatabaseOperation::OpConfig>().value_or(DatabaseOperation::OpConfig{});
+
+        auto b = commandExpr();
+        auto v = b.view();
+        std::string collectionName = "";
+        auto maybeFind = v.find("find");
+        if (maybeFind == v.end()) {
+            auto maybeAgg = v.find("aggregate");
+            if (maybeAgg != v.end()) {
+                collectionName = to_string(maybeFind->get_value().get_string().value);
+            }
+        } else {
+            collectionName = to_string(maybeFind->get_value().get_string().value);
+        }
+
+        BOOST_LOG_TRIVIAL(info) << " Collname " << collectionName << ", metric "
+                                << options.metricsName;
+        BOOST_LOG_TRIVIAL(info) << bsoncxx::to_json(v);
+
+
+        if (collectionName != "") {
+            auto& orchestrator = context.actor().orchestrator();
+            auto metricsName = options.metricsName;
+            orchestrator.addPostPhaseStopHook([&, database, collectionName, metricsName](
+                                                  const Orchestrator*, PhaseNumber phase) {
+                if (phase == context.getPhaseNumber()) {
+                    auto adminDB = (*client)["admin"];
+                    // Retrieve & report metrics.
+                    auto res = getQueryStats(adminDB, database, collectionName);
+                    BOOST_LOG_TRIVIAL(info) << " QueryStatsActor returns " << bsoncxx::to_json(res)
+                                            << ", nsp " << database << "." << collectionName;
+                    reportQueryStats("build/WorkloadOutput/ExtraMetrics/" + metricsName + ".json",
+                                     res);
+                }
+            });
+        }
+
         return std::make_unique<DatabaseOperation>(context,
                                                    actorContext,
                                                    id,
@@ -164,7 +239,7 @@ public:
         auto command = _commandExpr();
         auto view = command.view();
 
-        if (!_options.isQuiet) {
+        if (true) {
             BOOST_LOG_TRIVIAL(info) << " Running command: " << bsoncxx::to_json(view)
                                     << " on database: " << _databaseName;
         }
