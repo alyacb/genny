@@ -215,13 +215,19 @@ public:
             orchestrator.addPostPhaseStopHook([&, database, collectionName, metricsName](
                                                   const Orchestrator*, PhaseNumber phase) {
                 if (phase == context.getPhaseNumber()) {
+                    auto m = metricsName;
+                    if (metricsName == "") {
+                        std::ostringstream oss;
+                        oss << actorContext["Name"].maybe<std::string>().value_or("")
+                            << ".DatabaseOperation." << phase << "." << phase;
+                        m = oss.str();
+                    }
                     auto adminDB = (*client)["admin"];
                     // Retrieve & report metrics.
                     auto res = getQueryStats(adminDB, database, collectionName);
                     BOOST_LOG_TRIVIAL(info) << " QueryStatsActor returns " << bsoncxx::to_json(res)
                                             << ", nsp " << database << "." << collectionName;
-                    reportQueryStats("build/WorkloadOutput/ExtraMetrics/" + metricsName + ".json",
-                                     res);
+                    reportQueryStats("build/WorkloadOutput/ExtraMetrics/" + m + ".json", res);
                 }
             });
         }
