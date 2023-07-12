@@ -99,7 +99,7 @@ WorkloadContext::WorkloadContext(const Node& node,
     _seedGenerator.seed((*this)["RandomSeed"].maybe<long>().value_or(RNG_SEED_BASE));
 
     // Make a bunch of actor contexts
-    bool enableQSC = false;
+    bool enableQSC = true;  // Enable for all!
     for (const auto& [k, actor] : (*this)["Actors"]) {
         _actorContexts.emplace_back(std::make_unique<genny::ActorContext>(actor, *this));
         if (!enableQSC && actor["EnableQueryStats"].maybe<bool>().value_or(false)) {
