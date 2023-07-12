@@ -198,7 +198,7 @@ public:
         if (maybeFind == v.end()) {
             auto maybeAgg = v.find("aggregate");
             if (maybeAgg != v.end()) {
-                collectionName = to_string(maybeFind->get_value().get_string().value);
+                collectionName = to_string(maybeAgg->get_value().get_string().value);
             }
         } else {
             collectionName = to_string(maybeFind->get_value().get_string().value);
